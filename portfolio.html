@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Portfolio Pie</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent; /* průhledné pozadí */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #container {
+      display: flex;
+      gap: 10px;
+      font-family: Arial, sans-serif;
+      align-items: flex-start;
+      width: 70vw;   /* zaplní cca 70% slidu */
+      height: auto;
+    }
+
+    #controls {
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 15px;
+      height: 200px;
+    }
+
+    .pillar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pillar h3 {
+      width: 100px;
+      margin: 0;
+      font-size: 16px;
+      color: #222;
+    }
+
+    .value-controls {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .value-controls button {
+      width: 40px;
+      padding: 4px 0;
+      font-size: 14px;
+      border: none;
+      border-radius: 6px;
+      background-color: #ff751f;
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    .value-controls button:hover {
+      background-color: #e3640c;
+    }
+
+    .value-box {
+      width: 50px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 16px;
+      color: #333;
+    }
+
+    #chartArea {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    #portfolioChart {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <!-- Levý panel -->
+    <div id="controls">
+      <div class="pillar">
+        <h3>Stabilita</h3>
+        <div class="value-controls">
+          <button onclick="updateValue('stabilita', -5)">-5</button>
+          <div class="value-box" id="stabilitaBox"></div>
+          <button onclick="updateValue('stabilita', 5)">+5</button>
+        </div>
+      </div>
+
+      <div class="pillar">
+        <h3>Fér cena</h3>
+        <div class="value-controls">
+          <button onclick="updateValue('fer', -5)">-5</button>
+          <div class="value-box" id="ferBox"></div>
+          <button onclick="updateValue('fer', 5)">+5</button>
+        </div>
+      </div>
+
+      <div class="pillar">
+        <h3>Růstovky</h3>
+        <div class="value-controls">
+          <div style="width:40px"></div>
+          <div class="value-box" id="rustovkyBox"></div>
+          <div style="width:40px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pravý panel -->
+    <div id="chartArea">
+      <canvas id="portfolioChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    // Inicialní hodnoty
+    let stabilita = 50;
+    let fer = 30;
+    let rustovky = 100 - (stabilita + fer);
+    let portfolioChart;
+
+    // Funkce pro update hodnot
+    function updateValue(pillar, delta) {
+      if (pillar === "stabilita") stabilita = clamp(stabilita + delta, 40, 60);
+      if (pillar === "fer") fer = clamp(fer + delta, 25, 35);
+      rustovky = 100 - (stabilita + fer);
+      updateUI();
+      portfolioChart.data.datasets[0].data = [stabilita, fer, rustovky];
+      portfolioChart.update();
+      syncChartHeight();
+    }
+
+    // Nastavení min max pilíře
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    // Update hodnot v HTML
+    function updateUI() {
+      document.getElementById("stabilitaBox").textContent = stabilita + "%";
+      document.getElementById("ferBox").textContent = fer + "%";
+      document.getElementById("rustovkyBox").textContent = rustovky + "%";
+    }
+
+    function syncChartHeight() {
+      const left = document.getElementById("controls");
+      const right = document.getElementById("chartArea");
+      right.style.height = left.offsetHeight + "px";
+    }
+
+    // Inicializace po načtení DOM
+    window.addEventListener("DOMContentLoaded", () => {
+      updateUI();
+      syncChartHeight();
+
+      const ctx = document.getElementById("portfolioChart").getContext("2d");
+      ctx.canvas.style.backgroundColor = "transparent";
+      portfolioChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels: ["Stabilita", "Fér cena", "Růstovky"],
+          datasets: [{
+            data: [stabilita, fer, rustovky],
+            backgroundColor: [
+              "rgba(255, 117, 31, 0.9)",
+              "rgba(248, 188, 97, 0.9)",
+              "rgba(75, 156, 211, 0.9)"
+            ],
+            borderColor: ["#d85e00", "#d49e4a", "#396fa5"],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: "right",
+              align: "start",
+              labels: {
+                boxWidth: 12,
+                padding: 8,
+                font: { size: 12 }
+              }
+            }
+          }
+        }
+      });
+
+      window.addEventListener("resize", syncChartHeight);
+    });
+  </script>
+</body>
+</html>

@@ -5,17 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kalkulačka portfolia</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 /* KONTEJNER */
 body {
-	background: transparent;
+	/*background: transparent;*/
+	background: black;
 	position: relative;
 }
+
 #container {
 	display: flex;
 	gap: 100px;
 	font-family: Arial, sans-serif;
-	color:
 	margin: 0px;
 	margin-top: 100px;
 	align-items: flex-start;
@@ -23,7 +26,7 @@ body {
 
 /* LEVÝ PANEL */
 #controls {
-	width: 650px;
+	width: 1000px;
 	height: 500px;
 	display: flex;
 	flex-direction: column;
@@ -39,33 +42,41 @@ body {
 }
 
 .pillar h2 {
-	width: 390px;
+	width: 700px;
 	font-size: 59px;
 	margin: 0;
 }
 
-.stable {
-	color: rgb(255, 185, 117);
+.hvezdy {
+	color: rgb(234, 117, 0);
 }
 
-.fair {
-	color: rgb(206, 206, 226);
+.vyhodne {
+	color: rgb(2, 111, 168);
 }
 
-.growth {
-	color: rgb(109, 180, 221);
+.dominantni {
+	color: rgb(167, 7, 75);
+}
+
+.slepice {
+	color: rgb(148, 125, 3);
+}
+
+.rezerva {
+	color: rgb(168, 168, 168);
 }
 
 .value-controls {
 	display: flex;
 	align-items: center;
 	font-size: 57px;
-	gap: 10px;
+	gap: 20px; /* mezera mezi tlačítky */
 }
 
 .value-controls button {
 	width: 70px;
-	padding: 5px 0; 
+	padding: 5px 0;
 	font-size: 57px;
 	border: 5px;
 	border-radius: 10px;
@@ -80,6 +91,49 @@ body {
 	background-color: #e3640c;
 }
 
+.value-controls button.resetovat {
+	width: 300px;
+	padding: 5px 0;
+	font-size: 57px;
+	border: 5px;
+	border-radius: 10px;
+	background-color: #026fa8;
+	color: #fff;
+	cursor: pointer;
+	font-weight: bold;
+	transition: background 0.2s;
+}
+
+.value-controls button.resetovat:hover {
+	background-color: #087bb8;
+}
+
+.value-controls button.doporucit {
+	width: 340px;
+	padding: 5px 0;
+	font-size: 57px;
+	border: 5px;
+	border-radius: 10px;
+	color: #fff;
+	cursor: pointer;
+	font-weight: bold;
+	transition: background 0.2s;
+}
+.value-controls button.potvrdit {
+	width: 300px;
+	padding: 5px 0;
+	font-size: 57px;
+	border: 5px;
+	border-radius: 10px;
+	background-color: #205202;
+	color: #fff;
+	cursor: pointer;
+	font-weight: bold;
+	transition: background 0.2s;
+}
+.value-controls button.potvrdit:hover {
+	background-color: #3a8a08;
+}
 .value-box {
 	font-weight: bold;
 	font-size: 59px;
@@ -87,14 +141,26 @@ body {
 	color: #a8a8a8;
 }
 
+#rezervaBox {
+	width: 200px;
+	flex-shrink: 0;
+	margin-left: 20px;
+}
+
 #chartArea {
 	display: flex;
-	flex: 1 0 100;  /* */
+	flex: 1 0 100; /* */
 	height: 500px;
 	width: 700px;
 	margin-top: 0px;
-	/* horizontálně vycentrován */
-	align-items: flex-start; /* zarovnání shora s levým panelem */
+	justify-content: center;
+	align-items: center;
+}
+
+#chartArea canvas {
+	max-width: 700px;
+	max-height: 500px;
+	margin-top: 150px; /* uprav podle potřeby */
 }
 </style>
 </head>
@@ -103,53 +169,102 @@ body {
 	<!-- Levý panel -->
 	<div id="controls">
 		<div class="pillar">
-			<h2 class="stable">Stabilita</h2>
+			<h2 class="hvezdy">Rostoucí hvězdy</h2>
 			<div class="value-controls">
-				<button onclick="updateValue('stabilita', -5)">-5</button>
-				<div class="value-box" id="stabilitaBox"></div>
-				<button onclick="updateValue('stabilita', 5)">+5</button>
+				<button onclick="updateValue('hvezdy', -5)">-5</button>
+				<div class="value-box" id="hvezdyBox"></div>
+				<button onclick="updateValue('hvezdy', 5)">+5</button>
+			</div>
+		</div>
+		<div class="pillar">
+			<h2 class="vyhodne">Skvělé výhodné firmy</h2>
+			<div class="value-controls">
+				<button onclick="updateValue('vyhodne', -5)">-5</button>
+				<div class="value-box" id="vyhodneBox"></div>
+				<button onclick="updateValue('vyhodne', 5)">+5</button>
+			</div>
+		</div>
+		<div class="pillar">
+			<h2 class="dominantni">Dominantní hráči</h2>
+			<div class="value-controls">
+				<button onclick="updateValue('dominantni', -5)">-5</button>
+				<div class="value-box" id="dominantniBox"></div>
+				<button onclick="updateValue('dominantni', 5)">+5</button>
 			</div>
 		</div>
 
 		<div class="pillar">
-			<h2 class="fair">Fér cena</h2>
+			<h2 class="slepice">Slepice se zlatými vejci</h2>
 			<div class="value-controls">
-				<button onclick="updateValue('fer', -5)">-5</button>
-				<div class="value-box" id="ferBox"></div>
-				<button onclick="updateValue('fer', 5)">+5</button>
+				<button onclick="updateValue('slepice', -5)">-5</button>
+				<div class="value-box" id="slepiceBox"></div>
+				<button onclick="updateValue('slepice', 5)">+5</button>
 			</div>
 		</div>
 
 		<div class="pillar">
-			<h2 class="growth">Růstovky</h2>
+			<h2 class="rezerva">Rezerva:</h2>
 			<div class="value-controls">
-				<div style="width:40px"></div>
-				<div class="value-box" id="rustovkyBox"></div>
-				<div style="width:40px"></div>
+				<div class="value-box" id="rezervaBox"></div>
+				<button class="resetovat" onclick="updateValue('reset', 0)">Rezetovat</button>
+				<button class="doporucit" onclick="updateValue('doporuc', 0)">Doporučený</button>
+				<button class="potvrdit" onclick="createInvestmentTemplate(slepice, dominantni, vyhodne, hvezdy, rezerva)">Potvrdit</button>
 			</div>
 		</div>
 	</div>
-
+	<div id="investmentTemplate"></div>
 	<!-- Pravý panel -->
 	<div id="chartArea">
 		<canvas id="portfolioChart"></canvas>
 	</div>
-</div>
 
 <script>
 // Inicialní hodnoty
-let stabilita = 50;
-let fer = 30;
-let rustovky = 100 - (stabilita + fer);
+// Incicialni hodnoty
+let [slepice, dominantni, vyhodne, hvezdy] = [20, 20, 20, 20];
+let [dop_slepice, dop_dominantni, dop_vyhodne, dop_hvezdy] = [25, 35, 20, 20]; // Doporucene hodnoty
+let rezerva = 20;
+
+document.getElementById("rezervaBox").textContent = rezerva;
+updateUI(); //pripradi promennou, viditelnou v html
+
 let portfolioChart;
 
 // Funkce pro update hodnot
 function updateValue(pillar, delta) {
-	if (pillar === "stabilita") stabilita = clamp(stabilita + delta, 40, 60);
-	if (pillar === "fer") fer = clamp(fer + delta, 25, 35);
-	rustovky = 100 - (stabilita + fer);
+	if (rezerva - delta < 0) return;
+
+	switch (pillar) {
+		case "hvezdy":
+			delta = clamp(hvezdy + delta, 20, 40) === hvezdy ? 0 : delta;
+			hvezdy += delta;
+			break;
+		case "vyhodne":
+			delta = clamp(vyhodne + delta, 20, 40) === vyhodne ? 0 : delta;
+			vyhodne += delta;
+			break;
+		case "dominantni":
+			delta = clamp(dominantni + delta, 20, 40) === dominantni ? 0 : delta;
+			dominantni += delta;
+			break;
+		case "slepice":
+			delta = clamp(slepice + delta, 20, 40) === slepice ? 0 : delta;
+			slepice += delta;
+			break;
+		case "reset":
+			[slepice, dominantni, vyhodne, hvezdy] = [20, 20, 20, 20];
+			rezerva = 20;
+			break;
+		case "doporuc":
+			[slepice, dominantni, vyhodne, hvezdy] = [25, 35, 20, 20];
+			rezerva = 0;
+			break;
+	}
+
+	rezerva -= delta;
 	updateUI();
-	portfolioChart.data.datasets[0].data = [stabilita, fer, rustovky];
+	portfolioChart.data.datasets[0].data = [hvezdy, vyhodne, dominantni, slepice];
+	document.getElementById("rezervaBox").textContent = rezerva;
 	portfolioChart.update();
 
 	syncChartHeight();
@@ -162,9 +277,10 @@ function clamp(value, min, max) {
 
 // Update hodnot v HTML
 function updateUI() {
-	document.getElementById("stabilitaBox").textContent = stabilita + "%";
-	document.getElementById("ferBox").textContent = fer + "%";
-	document.getElementById("rustovkyBox").textContent = rustovky + "%";
+	document.getElementById("hvezdyBox").textContent = hvezdy + "%";
+	document.getElementById("vyhodneBox").textContent = vyhodne + "%";
+	document.getElementById("dominantniBox").textContent = dominantni + "%";
+	document.getElementById("slepiceBox").textContent = slepice + "%";
 }
 
 function syncChartHeight() {
@@ -176,27 +292,30 @@ function syncChartHeight() {
 // Inicializace po načtení DOM
 window.addEventListener("DOMContentLoaded", () => {
 	updateUI();
-	syncChartHeight();
+	syncChartHeight(); // <-- ZDE! Při startu nastavíme výšku
 
 	const ctx = document.getElementById("portfolioChart").getContext("2d");
 	ctx.canvas.style.backgroundColor = "transparent";
 	portfolioChart = new Chart(ctx, {
 		type: "pie",
 		data: {
-			labels: ["Stabilita", "Fér cena", "Růstovky"],
+			labels: [
+				"Rostoucí hvězdy",
+				"Skvělé výhodné firmy",
+				"Dominantní hráči",
+				"Slepice se zlatými vejci"
+			],
 			datasets: [
 				{
-					data: [stabilita, fer, rustovky],
+					data: [hvezdy, vyhodne, dominantni, slepice],
 					backgroundColor: [
-						"rgba(255, 185, 117, 0.9)",
-						"rgba(206, 206, 226, 0.9)",
-						"rgba(109, 180, 221, 0.9)"
+						"rgba(234, 117, 0, 0.9)",
+						"rgba(2, 111, 168, 0.9)",
+						"rgba(167, 7, 75, 0.9)",
+						"rgba(148, 125, 3, 0.9)"
 					],
-					borderColor: [
-						"rgb(178, 130, 82)",
-						"rgb(144, 144, 158)",
-						"rgb(76, 126, 155)"
-					],
+
+					borderColor: ["rgb(168, 168, 168)"],
 					borderWidth: 2
 				}
 			]
@@ -204,23 +323,770 @@ window.addEventListener("DOMContentLoaded", () => {
 		options: {
 			responsive: true,
 			maintainAspectRatio: false,
+			rotation: -100,
 			plugins: {
 				legend: {
 					position: "right",
 					align: "start",
 					labels: {
-						boxWidth: 22,
-						padding: 8,
+						boxWidth: 22, // zmenšení boxu
+						padding: 8, // mezera
 						font: { size: 24 },
 						color: "#ffffff"
 					}
+				},
+				tooltip: {
+					titleFont: { size: 22 },
+					bodyFont: { size: 20 },
+					padding: 14
 				}
 			}
 		}
 	});
 
-	window.addEventListener("resize", syncChartHeight);
+	window.addEventListener("resize", syncChartHeight); // <-- ZDE! Při resize okna
 });
+
+function createInvestmentTemplate(
+	slepice,
+	dominantni,
+	vyhodne,
+	hvezdy,
+	rezerva
+) {
+	if (rezerva !== 0) {
+		return;
+	}
+
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = now.getMonth();
+
+	const currentPeriod = Math.floor(month / 3) + 1;
+
+	const periods = [0, 1, 2].map((i) => {
+		const periodIndex = currentPeriod - i;
+
+		const periodNumber = ((periodIndex - 1 + 4) % 4) + 1;
+		const periodYear = year + Math.floor((periodIndex - 1) / 4);
+
+		return `${periodNumber}/Q4 ${periodYear}`;
+	});
+
+	const categories = [
+		["Rostoucí hvězdy", hvezdy, "#4a4a02"],
+		["Skvělé výhodné firmy", vyhodne, "#a7074b"],
+		["Dominantní hráči", dominantni, "#ea7500"],
+		["Slepice se zlatými vejci", slepice, "#3465a4"]
+	];
+
+	function escapeXML(value) {
+		return String(value)
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;")
+			.replace(/'/g, "&apos;");
+	}
+
+	function cell(value, style = "") {
+		return `
+			<table:table-cell${style ? ` table:style-name="${style}"` : ""}>
+				<text:p>${escapeXML(value)}</text:p>
+			</table:table-cell>
+		`;
+	}
+
+	let rows = "";
+
+	// =========================
+	// HLAVIČKA
+	// =========================
+
+	rows += `
+		<table:table-row table:style-name="rowHeader">
+
+			<!-- A-D -->
+			<table:table-cell
+				table:style-name="cellHeaderEmpty"
+				table:number-columns-spanned="4"
+				table:number-rows-spanned="4">
+				<text:p></text:p>
+			</table:table-cell>
+			<table:covered-table-cell/>
+			<table:covered-table-cell/>
+			<table:covered-table-cell/>
+
+			<!-- E-G -->
+			<table:table-cell
+				table:style-name="cellQuarter"
+				table:number-columns-spanned="3"
+				table:number-rows-spanned="4">
+				<text:p>${escapeXML(periods[0])}</text:p>
+			</table:table-cell>
+			<table:covered-table-cell/>
+			<table:covered-table-cell/>
+
+			<!-- H-J -->
+			<table:table-cell
+				table:style-name="cellHeader"
+				table:number-columns-spanned="3"
+				table:number-rows-spanned="4">
+				<text:p>Suma</text:p>
+			</table:table-cell>
+			<table:covered-table-cell/>
+			<table:covered-table-cell/>
+
+			<!-- K-M -->
+			<table:table-cell
+				table:style-name="cellQuarter"
+				table:number-columns-spanned="3"
+				table:number-rows-spanned="4">
+				<text:p>${escapeXML(periods[1])}</text:p>
+			</table:table-cell>
+			<table:covered-table-cell/>
+			<table:covered-table-cell/>
+
+			<!-- N-P -->
+			<table:table-cell
+				table:style-name="cellHeader"
+				table:number-columns-spanned="3"
+				table:number-rows-spanned="4">
+				<text:p>Suma</text:p>
+			</table:table-cell>
+			<table:covered-table-cell/>
+			<table:covered-table-cell/>
+
+			<!-- Q-S -->
+			<table:table-cell
+				table:style-name="cellQuarter"
+				table:number-columns-spanned="3"
+				table:number-rows-spanned="4">
+				<text:p>${escapeXML(periods[2])}</text:p>
+			</table:table-cell>
+			<table:covered-table-cell/>
+			<table:covered-table-cell/>
+
+			<!-- T-V -->
+			<table:table-cell
+				table:style-name="cellHeader"
+				table:number-columns-spanned="3"
+				table:number-rows-spanned="4">
+				<text:p>Suma</text:p>
+			</table:table-cell>
+			<table:covered-table-cell/>
+			<table:covered-table-cell/>
+
+		</table:table-row>
+
+
+		<!-- 2. řádek hlavičky -->
+
+		<table:table-row table:style-name="rowHeader">
+
+			${Array(22).fill("<table:covered-table-cell/>").join("")}
+
+		</table:table-row>
+
+
+		<!-- 3. řádek hlavičky -->
+
+		<table:table-row table:style-name="rowHeader">
+
+			${Array(22).fill("<table:covered-table-cell/>").join("")}
+
+		</table:table-row>
+
+
+		<!-- 4. řádek hlavičky -->
+
+		<table:table-row table:style-name="rowHeader">
+
+			${Array(22).fill("<table:covered-table-cell/>").join("")}
+
+		</table:table-row>
+	`;
+
+	// =========================
+	// KATEGORIE
+	// =========================
+
+	categories.forEach((category) => {
+		const name = category[0];
+		const weight = category[1];
+
+		const categoryStyle = `category_${categories.indexOf(category)}`;
+
+		rows += `
+			<!-- 1. řádek kategorie -->
+
+			<table:table-row table:style-name="rowCategory">
+
+				<!-- A-D: Kategorie -->
+				<table:table-cell
+					table:style-name="${categoryStyle}"
+					table:number-columns-spanned="4"
+					table:number-rows-spanned="12">
+					<text:p>${escapeXML(name)}</text:p>
+					<text:p>${escapeXML(weight + "%")}</text:p>
+				</table:table-cell>
+
+				<table:covered-table-cell/>
+				<table:covered-table-cell/>
+				<table:covered-table-cell/>
+
+
+				<!-- E-G: Kvartál 1 -->
+				<table:table-cell
+					table:style-name="cellValue"
+					table:number-columns-spanned="3"
+					table:number-rows-spanned="3">
+					<text:p></text:p>
+				</table:table-cell>
+
+				<table:covered-table-cell/>
+				<table:covered-table-cell/>
+
+
+				<!-- H-J: Suma -->
+				<table:table-cell
+					table:style-name="cellSum"
+					table:number-columns-spanned="3"
+					table:number-rows-spanned="12">
+					<text:p>0 Kč</text:p>
+				</table:table-cell>
+
+				<table:covered-table-cell/>
+				<table:covered-table-cell/>
+
+
+				<!-- K-M: Kvartál 1 -->
+				<table:table-cell
+					table:style-name="cellValue"
+					table:number-columns-spanned="3"
+					table:number-rows-spanned="3">
+					<text:p></text:p>
+				</table:table-cell>
+
+				<table:covered-table-cell/>
+				<table:covered-table-cell/>
+
+
+				<!-- N-P: Suma -->
+				<table:table-cell
+					table:style-name="cellSum"
+					table:number-columns-spanned="3"
+					table:number-rows-spanned="12">
+					<text:p></text:p>
+				</table:table-cell>
+
+				<table:covered-table-cell/>
+				<table:covered-table-cell/>
+
+
+				<!-- Q-S: Kvartál 1 -->
+				<table:table-cell
+					table:style-name="cellValue"
+					table:number-columns-spanned="3"
+					table:number-rows-spanned="3">
+					<text:p></text:p>
+				</table:table-cell>
+
+				<table:covered-table-cell/>
+				<table:covered-table-cell/>
+
+
+				<!-- T-V: Suma -->
+				<table:table-cell
+					table:style-name="cellSum"
+					table:number-columns-spanned="3"
+					table:number-rows-spanned="12">
+					<text:p></text:p>
+				</table:table-cell>
+
+				<table:covered-table-cell/>
+				<table:covered-table-cell/>
+
+			</table:table-row>
+
+
+			<!-- Řádky 2-12 kategorie -->
+
+			${Array.from({ length: 11 }, (_, i) => {
+				const row = i + 2;
+
+				// Nový kvartál začíná na řádcích 4, 7 a 10.
+				const newQuarter = row === 4 || row === 7 || row === 10;
+
+				const quarterCell = newQuarter
+					? `
+						<table:table-cell
+							table:style-name="cellValue"
+							table:number-columns-spanned="3"
+							table:number-rows-spanned="3">
+							<text:p></text:p>
+						</table:table-cell>
+
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+					`
+					: `
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+					`;
+
+				return `
+					<table:table-row table:style-name="rowCategory">
+
+						<!-- A-D: součást sloučené kategorie -->
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+
+
+						<!-- E-G: Kvartál -->
+						${quarterCell}
+
+
+						<!-- H-J: součást sloučené Sumy -->
+						<table:table-cell
+								table:style-name="cellSum"
+								table:number-columns-spanned="3">
+								<text:p>0 Kč</text:p>
+						</table:table-cell>
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+
+
+						<!-- K-M: Kvartál -->
+						${quarterCell}
+
+
+						<!-- N-P: součást sloučené Sumy -->
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+
+
+						<!-- Q-S: Kvartál -->
+						${quarterCell}
+
+
+						<!-- T-V: součást sloučené Sumy -->
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+						<table:covered-table-cell/>
+
+					</table:table-row>
+				`;
+			}).join("")}
+		`;
+	});
+
+	// =========================
+	// CONTENT.XML
+	// =========================
+
+	const contentXML = `<?xml version="1.0" encoding="UTF-8"?>
+
+<office:document-content
+	xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+	xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
+	xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+	xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"
+	xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
+	office:version="1.2">
+
+	<office:automatic-styles>
+
+	<!-- Sloupce -->
+
+		<style:style
+			style:name="cellHeaderEmpty"
+			style:family="table-cell">
+			<style:table-cell-properties
+				fo:background-color="#FFFFFF"
+				fo:border="0.03cm solid #000000"
+				fo:padding="0.08cm"/>
+		</style:style>
+
+		<style:style
+			style:name="colBase"
+			style:family="table-column">
+			<style:table-column-properties style:column-width="2.25cm"/>
+		</style:style>
+
+
+		<!-- Řádky -->
+
+		<style:style
+			style:name="rowQuarter"
+			style:family="table-row">
+			<style:table-row-properties
+				style:row-height="0.6cm"/>
+		</style:style>
+
+		<style:style
+			style:name="rowHeader"
+			style:family="table-row">
+			<style:table-row-properties
+				style:row-height="0.6cm"/>
+		</style:style>
+
+		<style:style
+			style:name="rowCategory"
+			style:family="table-row">
+			<style:table-row-properties
+				style:row-height="0.6cm"/>
+		</style:style>
+
+
+		<!-- Prázdná buňka -->
+
+		<style:style
+			style:name="cellEmpty"
+			style:family="table-cell">
+			<style:table-cell-properties
+				fo:border="0.02cm solid #000000"/>
+		</style:style>
+
+
+		<!-- Kvartál -->
+
+		<style:style
+			style:name="cellQuarter"
+			style:family="table-cell">
+
+			<style:table-cell-properties
+				fo:background-color="#2a6099"
+				fo:border="0.03cm solid #000000"
+				style:vertical-align="middle"/>
+
+			<style:paragraph-properties
+				fo:text-align="center"/>
+
+			<style:text-properties
+				fo:font-size="13pt"
+				fo:font-weight="bold"
+				fo:color="#FFFFFF"/>
+		</style:style>
+
+
+		<!-- Hlavička -->
+
+		<style:style
+			style:name="cellHeader"
+			style:family="table-cell">
+
+			<style:table-cell-properties
+				fo:background-color="#2a6099"
+				fo:border="0.03cm solid #000000"
+				style:vertical-align="middle"/>
+
+			<style:paragraph-properties
+				fo:text-align="center"/>
+
+			<style:text-properties
+				fo:font-size="13pt"
+				fo:font-weight="bold"
+				fo:color="#FFFFFF"/>
+		</style:style>
+
+	<table:covered-table-cell/>
+	<table:covered-table-cell/>
+
+	<table:table-cell
+		table:style-name="cellSum"
+		table:number-columns-spanned="3">
+		<text:p></text:p>
+	</table:table-cell>
+	<table:covered-table-cell/>
+	<table:covered-table-cell/>
+
+	<table:table-cell
+		table:style-name="cellValue"
+		table:number-columns-spanned="3">
+		<text:p></text:p>
+	</table:table-cell>
+	<table:covered-table-cell/>
+	<table:covered-table-cell/>
+
+	<table:table-cell
+		table:style-name="cellSum"
+		table:number-columns-spanned="3">
+		<text:p></text:p>
+	</table:table-cell>
+
+	<!-- Hodnoty -->
+
+	<style:style style:name="cellValue" style:family="table-cell">
+    <style:table-cell-properties
+        fo:background-color="#ffffff"
+        style:vertical-align="middle"
+        fo:border="0.05pt solid #000000"/>
+    <style:paragraph-properties
+        fo:text-align="center"/>
+    <style:text-properties
+        fo:font-size="13pt"
+        fo:font-weight="bold"
+        fo:color="#000000"/>
+		</style:style>
+
+
+		<!-- Suma -->
+
+		<style:style
+			style:name="cellSum"
+			style:family="table-cell">
+
+			<style:table-cell-properties
+				fo:background-color="#FFFFFF"
+				fo:border="1pt solid #000000"
+				style:vertical-align="middle"/>
+
+			<style:paragraph-properties
+				fo:text-align="center"/>
+
+			<style:text-properties
+				fo:font-size="13pt"
+				fo:font-weight="bold"
+				fo:color="#000000"/>
+		</style:style>
+
+
+		<!-- Kategorie 1 -->
+
+		<style:style
+			style:name="category_0"
+			style:family="table-cell">
+
+			<style:table-cell-properties
+				fo:background-color="#4a4a02"
+				fo:border="0.03cm solid #000000"
+				style:vertical-align="middle"/>
+
+			<style:paragraph-properties
+				fo:text-align="center"/>
+
+			<style:text-properties
+				fo:font-size="22pt"
+				fo:font-weight="bold"
+				fo:color="#FFFFFF"/>
+		</style:style>
+
+
+		<!-- Kategorie 2 -->
+
+		<style:style
+			style:name="category_1"
+			style:family="table-cell">
+
+			<style:table-cell-properties
+				fo:background-color="#a7074b"
+				fo:border="0.03cm solid #000000"
+				style:vertical-align="middle"/>
+
+			<style:paragraph-properties
+				fo:text-align="center"/>
+
+			<style:text-properties
+				fo:font-size="22pt"
+				fo:font-weight="bold"
+				fo:color="#FFFFFF"/>
+		</style:style>
+
+
+		<!-- Kategorie 3 -->
+
+		<style:style
+			style:name="category_2"
+			style:family="table-cell">
+
+			<style:table-cell-properties
+				fo:background-color="#ea7500"
+				fo:border="0.03cm solid #000000"
+				style:vertical-align="middle"/>
+
+			<style:paragraph-properties
+				fo:text-align="center"/>
+
+			<style:text-properties
+				fo:font-size="22pt"
+				fo:font-weight="bold"
+				fo:color="#FFFFFF"/>
+		</style:style>
+
+
+		<!-- Kategorie 4 -->
+
+		<style:style
+			style:name="category_3"
+			style:family="table-cell">
+
+			<style:table-cell-properties
+				fo:background-color="#3465a4"
+				fo:border="0.03cm solid #000000"
+				style:vertical-align="middle"/>
+
+			<style:paragraph-properties
+				fo:text-align="center"/>
+
+			<style:text-properties
+				fo:font-size="22pt"
+				fo:font-weight="bold"
+				fo:color="#FFFFFF"/>
+		</style:style>
+
+	</office:automatic-styles>
+
+
+	<office:body>
+
+		<office:spreadsheet>
+
+			<table:table table:name="Investice">
+
+		<table:table-column
+					table:style-name="colBase"
+					table:number-columns-repeated="22"/>
+
+				${rows}
+
+			</table:table>
+
+		</office:spreadsheet>
+
+	</office:body>
+
+</office:document-content>`;
+
+	// =========================
+	// STYLES.XML
+	// =========================
+
+	const stylesXML = `<?xml version="1.0" encoding="UTF-8"?>
+
+<office:document-styles
+	xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+	xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"
+	xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"
+	xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"
+	office:version="1.2">
+
+	<office:styles>
+
+		<style:default-style style:family="table-cell">
+			<style:text-properties
+				style:font-name="Arial"
+				fo:font-size="10pt"/>
+		</style:default-style>
+
+	</office:styles>
+
+</office:document-styles>`;
+
+	// =========================
+	// META.XML
+	// =========================
+
+	const metaXML = `<?xml version="1.0" encoding="UTF-8"?>
+
+<office:document-meta
+	xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+	xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"
+	office:version="1.2">
+
+	<office:meta>
+		<meta:generator>Investiční template</meta:generator>
+	</office:meta>
+
+</office:document-meta>`;
+
+	// =========================
+	// SETTINGS.XML
+	// =========================
+
+	const settingsXML = `<?xml version="1.0" encoding="UTF-8"?>
+
+<office:document-settings
+	xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
+	office:version="1.2">
+
+	<office:settings/>
+
+</office:document-settings>`;
+
+	// =========================
+	// MANIFEST.XML
+	// =========================
+
+	const manifestXML = `<?xml version="1.0" encoding="UTF-8"?>
+
+<manifest:manifest
+	xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"
+	manifest:version="1.2">
+
+	<manifest:file-entry
+		manifest:full-path="/"
+		manifest:media-type="application/vnd.oasis.opendocument.spreadsheet"/>
+
+	<manifest:file-entry
+		manifest:full-path="content.xml"
+		manifest:media-type="text/xml"/>
+
+	<manifest:file-entry
+		manifest:full-path="styles.xml"
+		manifest:media-type="text/xml"/>
+
+	<manifest:file-entry
+		manifest:full-path="meta.xml"
+		manifest:media-type="text/xml"/>
+
+	<manifest:file-entry
+		manifest:full-path="settings.xml"
+		manifest:media-type="text/xml"/>
+
+</manifest:manifest>`;
+
+	// =========================
+	// VYTVOŘENÍ ODS
+	// =========================
+
+	const zip = new JSZip();
+
+	zip.file("mimetype", "application/vnd.oasis.opendocument.spreadsheet", {
+		compression: "STORE"
+	});
+
+	zip.folder("META-INF").file("manifest.xml", manifestXML);
+
+	zip.file("content.xml", contentXML);
+	zip.file("styles.xml", stylesXML);
+	zip.file("meta.xml", metaXML);
+	zip.file("settings.xml", settingsXML);
+
+	zip
+		.generateAsync({
+			type: "blob"
+		})
+		.then((blob) => {
+			const url = URL.createObjectURL(blob);
+
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = "investicni_template.ods";
+
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+
+			setTimeout(() => {
+				URL.revokeObjectURL(url);
+			}, 1000);
+		});
+}
 </script>
 </body>
 </html>
